@@ -22,27 +22,33 @@ class SkeletonDataset(Dataset):
         T = item["total_frames"]
         label = int(item["label"])
 
-
         if kp.ndim == 4:
-            kp = kp[0]    # solo la primera persona
+            kp = kp[0]    
         elif kp.ndim == 3:
             kp = kp
         else:
             kp = np.zeros((self.num_frames, 17, 2))
             label = 0
 
+        real_length = min(kp.shape[0], self.num_frames)
+
         if kp.shape[0] >= self.num_frames:
             kp = self.sample_frames(kp, kp.shape[0])
+            real_length = self.num_frames
         else:
+            # Padding con el último frame
             last = kp[-1]
             pad = np.repeat(last[None, :, :], self.num_frames - kp.shape[0], axis=0)
             kp = np.concatenate([kp, pad], axis=0)
 
+        # Normalización
         h, w = item["img_shape"]
         kp[..., 0] /= w
         kp[..., 1] /= h
 
         kp = torch.tensor(kp, dtype=torch.float32)
         label = torch.tensor(label, dtype=torch.long)
+        real_length = torch.tensor(real_length, dtype=torch.long)
 
-        return kp, label
+        # Devolvemos también la longitud real para pack_padded_sequence
+        return kp, label, real_length
